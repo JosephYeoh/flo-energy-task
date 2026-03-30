@@ -1,0 +1,11 @@
+version: "3.9"
+services:
+  nem12:
+    build: .
+    image: nem12-meter-readings:latest
+    environment:
+      INPUT_PATH: /data/in/input.csv
+      OUTPUT_PATH: /data/out/output.sql
+      BATCH_SIZE: "1000"
+    volumes:
+      - ./data:/data

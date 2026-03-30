@@ -134,6 +134,10 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
         continue;
       }
 
+      if (indicator === "400" || indicator === "500") {
+        continue;
+      }
+
       throw new Error(`Unexpected record indicator: ${indicator || "<empty>"}`);
     }
 

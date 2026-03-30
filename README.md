@@ -32,14 +32,13 @@ docker run --rm \
   nem12-meter-readings:latest
 ```
 
-## Kubernetes (Job-per-file)
+## Docker Compose
 
 ```bash
-kubectl apply -f k8s/pvc.yaml
-kubectl apply -f k8s/job.yaml
+docker compose up --build
 ```
 
-Place the input file at `/data/in/input.csv` on the PVC. Output is written to `/data/out/output.sql` if the file is valid.
+Place the input file at `./data/in/input.csv`. Output will be written to `./data/out/output.sql`.
 
 ## Notes
 
