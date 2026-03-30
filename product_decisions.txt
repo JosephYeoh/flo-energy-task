@@ -1,0 +1,13 @@
+1. Opted to have timestamp without timezone as table uses "timestamp" instead of "timestamptz".
+2. Omit missing interval values (and log) as it is plausible for data to be actually missing. 
+3. Skip whole file (and log) if invalid or unexpected record to avoid unexpected situations, ask team to fix up file before retrying.
+4. Make bulk inserts to reduce DB load.
+5. Function handles one file, but can handle multiple files by load distributing to differenet instances.
+6. Label 400/500 records as future improvements
+7. Use `csv-parser`, abit slower with overhead but more robust CSV handling.
+8. Structure so that we can horizontally scale this.
+9. Precompute timestamps for 30minutes interval to reduce computational load.
+10. Use streaming to handle large file sizes to reduce memory load.
+11. K8s and dockerise for easy horizontal scaling.
+12. Handle as a per file per job for now as files are expected to be large.
+
