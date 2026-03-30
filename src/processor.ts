@@ -1,9 +1,8 @@
 import fs from "fs";
 import { parse } from "csv-parse";
 import { buildInsert, buildRow } from "./sql";
-import { normalizeFields, parse100, parse200, parse300, parse900, parseRecordIndicator } from "./records";
+import { parse100, parse200, parse300, parse900, Record200 } from "./records";
 import { dateToUtcMs, formatTimestampUtc, getOffsetsMs } from "./time";
-import { Record200 } from "./types";
 
 export interface ProcessOptions {
   inputPath: string;
@@ -73,8 +72,8 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
   try {
     for await (const record of parser) {
       recordsRead += 1;
-      const fields = normalizeFields(record);
-      const indicator = parseRecordIndicator(fields);
+      const fields = (record as unknown[]).map((v) => String(v ?? ""));
+      const indicator = (fields[0] ?? "").trim();
 
       if (indicator === "100") {
         parse100(fields);
@@ -109,9 +108,7 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
           if (!rawValue) {
             rowsSkipped += 1;
             if (missingLog) {
-              missingLog.write(
-                `${current200.nmi},${record300.intervalDate},${i + 1}\n`
-              );
+              missingLog.write(`${current200.nmi},${record300.intervalDate},${i + 1}\n`);
             }
             continue;
           }

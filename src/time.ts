@@ -21,7 +21,7 @@ export function getOffsetsMs(intervalLength: number): number[] {
   return offsets;
 }
 
-export function parseDateYYYYMMDD(value: string): { year: number; month: number; day: number } {
+function parseDateYYYYMMDD(value: string): { year: number; month: number; day: number } {
   if (!/^\d{8}$/.test(value)) {
     throw new Error(`Invalid IntervalDate: ${value}`);
   }

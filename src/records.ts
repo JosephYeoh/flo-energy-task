@@ -1,20 +1,38 @@
-import { Record100, Record200, Record300, Record900 } from "./types";
 import { getIntervalCount, isValidIntervalLength } from "./time";
 
-export function normalizeFields(raw: unknown[]): string[] {
-  return raw.map((value) => (value === undefined || value === null ? "" : String(value)));
+export type RecordType = "100" | "200" | "300" | "900";
+
+interface BaseRecord {
+  type: RecordType;
+  raw: string[];
 }
 
-export function parseRecordIndicator(fields: string[]): string {
-  return (fields[0] ?? "").trim();
+export interface Record100 extends BaseRecord {
+  type: "100";
 }
+
+export interface Record200 extends BaseRecord {
+  type: "200";
+  nmi: string;
+  intervalLength: number;
+  intervalLengthRaw: string;
+}
+
+export interface Record300 extends BaseRecord {
+  type: "300";
+  intervalDate: string;
+  intervalValues: string[];
+}
+
+export interface Record900 extends BaseRecord {
+  type: "900";
+}
+
+export type NEM12Record = Record100 | Record200 | Record300 | Record900;
+
 
 export function parse100(fields: string[]): Record100 {
   return { type: "100", raw: fields };
-}
-
-export function parse900(fields: string[]): Record900 {
-  return { type: "900", raw: fields };
 }
 
 export function parse200(fields: string[]): Record200 {
@@ -56,4 +74,8 @@ export function parse300(fields: string[], intervalLength: number): Record300 {
     intervalDate,
     intervalValues,
   };
+}
+
+export function parse900(fields: string[]): Record900 {
+  return { type: "900", raw: fields };
 }
