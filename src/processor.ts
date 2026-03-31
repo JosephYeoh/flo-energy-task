@@ -46,7 +46,7 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
     bom: true,
     relax_quotes: true,
     relax_column_count: true,
-    trim: false,
+    trim: true,
   });
 
   input.pipe(parser);
@@ -82,7 +82,7 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
       recordsRead += 1;
       // Normalize to strings for consistent parsing.
       const fields = (record as unknown[]).map((v) => String(v ?? ""));
-      const indicator = (fields[0] ?? "").trim();
+      const indicator = fields[0] ?? "";
 
       if (indicator === "100") {
         parse100(fields);
@@ -106,23 +106,25 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
         const baseMs = dateToUtcMs(record300.intervalDate);
         const offsetsMs = getOffsetsMs(current200.intervalLength);
 
+        const logSkipped = (index: number, reason: string, rawValue: string) => {
+          skippedLog.write(
+            `${current200!.nmi},${record300.intervalDate},${index},${reason},${rawValue}\n`
+          );
+        };
+
         for (let i = 0; i < record300.intervalValues.length; i += 1) {
           const rawValue = record300.intervalValues[i];
           if (!rawValue) {
             rowsSkipped += 1;
             // Missing interval value: skip and log.
-            skippedLog.write(
-              `${current200.nmi},${record300.intervalDate},${i + 1},missing_value,\n`
-            );
+            logSkipped(i + 1, "missing_value", "");
             continue;
           }
           const value = Number(rawValue);
           if (!Number.isFinite(value)) {
             rowsSkipped += 1;
             // Non-numeric interval value: skip and log.
-            skippedLog.write(
-              `${current200.nmi},${record300.intervalDate},${i + 1},invalid_number,${rawValue}\n`
-            );
+            logSkipped(i + 1, "invalid_number", rawValue);
             continue;
           }
           const timestamp = formatTimestampUtc(baseMs + offsetsMs[i]);

@@ -1,4 +1,4 @@
-import { getIntervalCount, isValidIntervalLength } from "./time";
+import { isValidIntervalLength } from "./time";
 
 export type RecordType = "100" | "200" | "300" | "900";
 
@@ -15,7 +15,6 @@ export interface Record200 extends BaseRecord {
   type: "200";
   nmi: string;
   intervalLength: number;
-  intervalLengthRaw: string;
 }
 
 export interface Record300 extends BaseRecord {
@@ -45,21 +44,20 @@ export function parse200(fields: string[]): Record200 {
   if (fields.length < 9) {
     throw new Error("Invalid 200 record: expected at least 9 fields");
   }
-  const nmi = (fields[1] ?? "").trim();
+  const nmi = fields[1] ?? "";
   if (!nmi) {
     throw new Error("Invalid 200 record: missing NMI");
   }
-  const intervalLengthRaw = (fields[8] ?? "").trim();
-  const intervalLength = Number(intervalLengthRaw);
+const intervalLength = Number(fields[8]);
+
   if (!Number.isFinite(intervalLength) || !isValidIntervalLength(intervalLength)) {
-    throw new Error(`Invalid 200 record: invalid IntervalLength ${intervalLengthRaw}`);
+    throw new Error(`Invalid 200 record: invalid IntervalLength ${fields[8]}`);
   }
   return {
     type: "200",
     raw: fields,
     nmi,
     intervalLength,
-    intervalLengthRaw,
   };
 }
 
@@ -70,13 +68,13 @@ export function parse300(fields: string[], intervalLength: number): Record300 {
   if (fields.length < 2) {
     throw new Error("Invalid 300 record: expected at least 2 fields");
   }
-  const intervalDate = (fields[1] ?? "").trim();
-  const intervalCount = getIntervalCount(intervalLength);
+  const intervalDate = fields[1] ?? "";
+  const intervalCount = Math.floor(1440 / intervalLength);
   const expectedMinLength = 2 + intervalCount;
   if (fields.length < expectedMinLength) {
     throw new Error(`Invalid 300 record: expected at least ${expectedMinLength} fields`);
   }
-  const intervalValues = fields.slice(2, 2 + intervalCount).map((value) => value.trim());
+  const intervalValues = fields.slice(2, 2 + intervalCount);
   return {
     type: "300",
     raw: fields,
