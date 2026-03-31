@@ -1,14 +1,23 @@
 const VALID_INTERVAL_LENGTHS = new Set([5, 15, 30]);
 const OFFSETS_CACHE = new Map<number, number[]>();
 
+/**
+ * Validate interval length against supported NEM12 values.
+ */
 export function isValidIntervalLength(value: number): boolean {
   return VALID_INTERVAL_LENGTHS.has(value);
 }
 
+/**
+ * Get the number of intervals per day for a given interval length.
+ */
 export function getIntervalCount(intervalLength: number): number {
   return Math.floor(1440 / intervalLength);
 }
 
+/**
+ * Precompute period-ending offsets (ms) for interval positions in a day.
+ */
 export function getOffsetsMs(intervalLength: number): number[] {
   const cached = OFFSETS_CACHE.get(intervalLength);
   if (cached) return cached;
@@ -21,7 +30,10 @@ export function getOffsetsMs(intervalLength: number): number[] {
   return offsets;
 }
 
-function parseDateYYYYMMDD(value: string): { year: number; month: number; day: number } {
+/**
+ * Convert a YYYYMMDD date to a UTC midnight timestamp (ms).
+*/
+export function dateToUtcMs(value: string): number {
   if (!/^\d{8}$/.test(value)) {
     throw new Error(`Invalid IntervalDate: ${value}`);
   }
@@ -34,14 +46,12 @@ function parseDateYYYYMMDD(value: string): { year: number; month: number; day: n
   if (month < 1 || month > 12 || day < 1 || day > 31) {
     throw new Error(`Invalid IntervalDate: ${value}`);
   }
-  return { year, month, day };
-}
-
-export function dateToUtcMs(dateStr: string): number {
-  const { year, month, day } = parseDateYYYYMMDD(dateStr);
   return Date.UTC(year, month - 1, day, 0, 0, 0, 0);
 }
 
+/**
+ * Format a UTC timestamp (ms) as a SQL-friendly datetime string.
+ */
 export function formatTimestampUtc(ms: number): string {
   const d = new Date(ms);
   const yyyy = d.getUTCFullYear();

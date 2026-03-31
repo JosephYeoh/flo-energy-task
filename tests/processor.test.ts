@@ -14,7 +14,7 @@ function buildSample300(date: string): string {
 }
 
 describe("processFile", () => {
-  it("logs duplicate 300 records", async () => {
+  it("writes output and skipped log", async () => {
     const dir = makeTempDir();
     const inputPath = path.join(dir, "input.csv");
     const outputPath = path.join(dir, "output.sql");
@@ -33,9 +33,9 @@ describe("processFile", () => {
       batchSize: 1000,
     });
 
-    expect(result.duplicate300Count).toBe(1);
     expect(fs.existsSync(outputPath)).toBe(true);
     const output = fs.readFileSync(outputPath, "utf8");
     expect(output).toContain("INSERT INTO meter_readings");
+    expect(fs.existsSync(`${outputPath}.skipped.csv`)).toBe(true);
   });
 });

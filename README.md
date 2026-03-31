@@ -16,10 +16,9 @@ Options:
 - `--input <path>` required
 - `--output <path>` required
 - `--batch-size <n>` optional (default 1000)
-- `--log-missing <path>` optional (logs skipped blank interval values)
 
 Environment variables:
-- `INPUT_PATH`, `OUTPUT_PATH`, `BATCH_SIZE`, `LOG_MISSING_PATH`
+- `INPUT_PATH`, `OUTPUT_PATH`, `BATCH_SIZE`
 
 ## Docker
 
@@ -39,6 +38,9 @@ docker compose up --build
 ```
 
 Place the input file at `./data/in/input.csv`. Output will be written to `./data/out/output.sql`.
+
+Skipped rows are always logged to `OUTPUT_PATH + ".skipped.csv"` in CSV format:
+`nmi,intervalDate,intervalIndex,reason,rawValue`.
 
 ## Notes
 

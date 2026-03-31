@@ -8,33 +8,40 @@ export interface ProcessOptions {
   inputPath: string;
   outputPath: string;
   batchSize: number;
-  logMissingPath?: string;
 }
 
 export interface ProcessResult {
   recordsRead: number;
   rowsEmitted: number;
   rowsSkipped: number;
-  duplicate300Count: number;
 }
 
+/**
+ * Write to a stream and await drain if the internal buffer is full.
+ */
 async function writeWithBackpressure(stream: fs.WriteStream, data: string): Promise<void> {
   if (stream.write(data)) return;
   await new Promise<void>((resolve) => stream.once("drain", () => resolve()));
 }
 
+/**
+ * Stream a NEM12 file into batched SQL inserts with a skipped-row audit log.
+ */
 export async function processFile(options: ProcessOptions): Promise<ProcessResult> {
-  const { inputPath, outputPath, batchSize, logMissingPath } = options;
+  const { inputPath, outputPath, batchSize } = options;
+  // Write output atomically via temp file; always keep a skipped-log next to it.
   const tmpPath = `${outputPath}.tmp`;
+  const skippedLogPath = `${outputPath}.skipped.csv`;
 
   await fs.promises.rm(tmpPath, { force: true });
+  await fs.promises.rm(skippedLogPath, { force: true });
 
+  // Streams for input, output SQL, and skipped-row audit log.
   const input = fs.createReadStream(inputPath, { encoding: "utf8" });
   const output = fs.createWriteStream(tmpPath, { encoding: "utf8" });
-  const missingLog = logMissingPath
-    ? fs.createWriteStream(logMissingPath, { encoding: "utf8" })
-    : null;
+  const skippedLog = fs.createWriteStream(skippedLogPath, { encoding: "utf8" });
 
+  // CSV parser yields one record per NEM12 line.
   const parser = parse({
     bom: true,
     relax_quotes: true,
@@ -44,15 +51,15 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
 
   input.pipe(parser);
 
+  // State for the current 200 record context.
   let current200: Record200 | null = null;
-  const seen300 = new Set<string>();
   const rows: string[] = [];
 
   let recordsRead = 0;
   let rowsEmitted = 0;
   let rowsSkipped = 0;
-  let duplicate300Count = 0;
 
+  // Flush the in-memory batch to the output stream.
   const flushRows = async () => {
     if (rows.length === 0) return;
     const sql = buildInsert(rows);
@@ -61,17 +68,19 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
     await writeWithBackpressure(output, sql);
   };
 
+  // Best-effort cleanup for partial runs.
   const cleanup = async () => {
     input.destroy();
     parser.destroy();
     output.destroy();
-    if (missingLog) missingLog.destroy();
+    skippedLog.destroy();
     await fs.promises.rm(tmpPath, { force: true });
   };
 
   try {
     for await (const record of parser) {
       recordsRead += 1;
+      // Normalize to strings for consistent parsing.
       const fields = (record as unknown[]).map((v) => String(v ?? ""));
       const indicator = (fields[0] ?? "").trim();
 
@@ -82,6 +91,7 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
       }
 
       if (indicator === "200") {
+        // Update context for subsequent 300 records.
         current200 = parse200(fields);
         continue;
       }
@@ -92,14 +102,7 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
         }
         const record300 = parse300(fields, current200.intervalLength);
 
-        const duplicateKey = `${current200.nmi}|${record300.intervalDate}`;
-        if (seen300.has(duplicateKey)) {
-          duplicate300Count += 1;
-          console.warn(`Duplicate 300 record detected for ${duplicateKey}`);
-        } else {
-          seen300.add(duplicateKey);
-        }
-
+        // Precompute timestamps for interval positions.
         const baseMs = dateToUtcMs(record300.intervalDate);
         const offsetsMs = getOffsetsMs(current200.intervalLength);
 
@@ -107,14 +110,20 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
           const rawValue = record300.intervalValues[i];
           if (!rawValue) {
             rowsSkipped += 1;
-            if (missingLog) {
-              missingLog.write(`${current200.nmi},${record300.intervalDate},${i + 1}\n`);
-            }
+            // Missing interval value: skip and log.
+            skippedLog.write(
+              `${current200.nmi},${record300.intervalDate},${i + 1},missing_value,\n`
+            );
             continue;
           }
           const value = Number(rawValue);
           if (!Number.isFinite(value)) {
-            throw new Error(`Invalid interval value: ${rawValue}`);
+            rowsSkipped += 1;
+            // Non-numeric interval value: skip and log.
+            skippedLog.write(
+              `${current200.nmi},${record300.intervalDate},${i + 1},invalid_number,${rawValue}\n`
+            );
+            continue;
           }
           const timestamp = formatTimestampUtc(baseMs + offsetsMs[i]);
           rows.push(buildRow(current200.nmi, timestamp, value.toString()));
@@ -131,6 +140,7 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
         continue;
       }
 
+      // Ignore 400/500 until explicitly supported.
       if (indicator === "400" || indicator === "500") {
         continue;
       }
@@ -138,20 +148,19 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
       throw new Error(`Unexpected record indicator: ${indicator || "<empty>"}`);
     }
 
+    // Final flush and close streams.
     await flushRows();
     await new Promise<void>((resolve, reject) => {
       output.end(() => resolve());
       output.on("error", reject);
     });
-    if (missingLog) {
-      await new Promise<void>((resolve, reject) => {
-        missingLog.end(() => resolve());
-        missingLog.on("error", reject);
-      });
-    }
+    await new Promise<void>((resolve, reject) => {
+      skippedLog.end(() => resolve());
+      skippedLog.on("error", reject);
+    });
     await fs.promises.rename(tmpPath, outputPath);
 
-    return { recordsRead, rowsEmitted, rowsSkipped, duplicate300Count };
+    return { recordsRead, rowsEmitted, rowsSkipped };
   } catch (error) {
     await cleanup();
     throw error;

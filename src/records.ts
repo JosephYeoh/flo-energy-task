@@ -31,10 +31,16 @@ export interface Record900 extends BaseRecord {
 export type NEM12Record = Record100 | Record200 | Record300 | Record900;
 
 
+/**
+ * Parse a 100 record (file header / sender metadata).
+ */
 export function parse100(fields: string[]): Record100 {
   return { type: "100", raw: fields };
 }
 
+/**
+ * Parse a 200 record (NMI data details: identifier + interval length).
+ */
 export function parse200(fields: string[]): Record200 {
   if (fields.length < 9) {
     throw new Error("Invalid 200 record: expected at least 9 fields");
@@ -57,6 +63,9 @@ export function parse200(fields: string[]): Record200 {
   };
 }
 
+/**
+ * Parse a 300 record (interval data for a single date).
+ */
 export function parse300(fields: string[], intervalLength: number): Record300 {
   if (fields.length < 2) {
     throw new Error("Invalid 300 record: expected at least 2 fields");
@@ -76,6 +85,23 @@ export function parse300(fields: string[], intervalLength: number): Record300 {
   };
 }
 
+/**
+ * Parse a 900 record (end-of-data marker).
+ */
 export function parse900(fields: string[]): Record900 {
   return { type: "900", raw: fields };
+}
+
+/**
+ * Parse a 400 record (interval event / quality metadata).
+ */
+export function parse400(_fields: string[]): never {
+  throw new Error("parse400 not implemented");
+}
+
+/**
+ * Parse a 500 record (B2B details / meter read metadata).
+ */
+export function parse500(_fields: string[]): never {
+  throw new Error("parse500 not implemented");
 }

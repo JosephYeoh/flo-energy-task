@@ -5,9 +5,11 @@ interface CliOptions {
   inputPath?: string;
   outputPath?: string;
   batchSize?: number;
-  logMissingPath?: string;
 }
 
+/**
+ * Parse CLI arguments into a structured options object.
+ */
 function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {};
   for (let i = 2; i < argv.length; i += 1) {
@@ -27,11 +29,6 @@ function parseArgs(argv: string[]): CliOptions {
       i += 1;
       continue;
     }
-    if (arg === "--log-missing" && argv[i + 1]) {
-      options.logMissingPath = argv[i + 1];
-      i += 1;
-      continue;
-    }
     if (arg === "--help" || arg === "-h") {
       options.inputPath = "__help__";
       return options;
@@ -40,15 +37,17 @@ function parseArgs(argv: string[]): CliOptions {
   return options;
 }
 
+/**
+ * Print CLI usage information to stderr.
+ */
 function printUsage(): void {
-  const msg = `Usage: nem12-to-sql --input <path> --output <path> [--batch-size <n>] [--log-missing <path>]
-
-Environment variables:
-  INPUT_PATH, OUTPUT_PATH, BATCH_SIZE, LOG_MISSING_PATH
-`;
+  const msg = `Usage: nem12-to-sql --input <path> --output <path> [--batch-size <n>]`;
   process.stderr.write(msg);
 }
 
+/**
+ * Entry point for the CLI.
+ */
 async function main(): Promise<void> {
   const cli = parseArgs(process.argv);
   if (cli.inputPath === "__help__") {
@@ -56,10 +55,8 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  const inputPath = cli.inputPath || process.env.INPUT_PATH;
-  const outputPath = cli.outputPath || process.env.OUTPUT_PATH;
-  const batchSizeRaw = cli.batchSize ?? Number(process.env.BATCH_SIZE ?? "1000");
-  const logMissingPath = cli.logMissingPath || process.env.LOG_MISSING_PATH;
+  const { inputPath, outputPath } = cli;
+  const batchSizeRaw = cli.batchSize ?? 1000;
 
   if (!inputPath || !outputPath) {
     printUsage();
@@ -76,10 +73,9 @@ async function main(): Promise<void> {
       inputPath,
       outputPath,
       batchSize: Math.floor(batchSizeRaw),
-      logMissingPath,
     });
     console.error(
-      `Processed ${result.recordsRead} records. Emitted ${result.rowsEmitted} rows. Skipped ${result.rowsSkipped} rows. Duplicates ${result.duplicate300Count}.`
+      `Processed ${result.recordsRead} records. Emitted ${result.rowsEmitted} rows. Skipped ${result.rowsSkipped} rows.`,
     );
   } catch (error) {
     console.error(`Failed to process file: ${(error as Error).message}`);
