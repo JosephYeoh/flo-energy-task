@@ -9,6 +9,8 @@ Q2. What would you have done differently if you had more time?
 - Implement full 400/500 record support (quality flags, reason codes, B2B metadata).
 - Add a file format checker to validate files before processing.
 - Improve observability with metrics (rows/sec, files/sec), error rates, and structured logging.
+- Implement unit tests for all core processing functions to ensure logic accuracy.
+- Add integration tests to validate the full pipeline's behavior from file ingestion to database write.
 
 Q3. What is the rationale for the design choices that you have made?
 - Coding choices:
