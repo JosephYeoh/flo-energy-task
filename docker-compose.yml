@@ -3,9 +3,6 @@ services:
   nem12:
     build: .
     image: nem12-meter-readings:latest
-    environment:
-      INPUT_PATH: /data/in/input.csv
-      OUTPUT_PATH: /data/out/output.sql
-      BATCH_SIZE: "1000"
+    command: ["--input-dir", "/data/in", "--output-dir", "/data/out", "--logs-dir", "/data/_logs"]
     volumes:
       - ./data:/data

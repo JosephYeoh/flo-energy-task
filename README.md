@@ -4,31 +4,12 @@ Strict, streaming NEM12 parser that expands interval values into `meter_readings
 
 ## Usage
 
-Local:
+Directory batch:
 
 ```bash
 npm install
 npm run build
-node dist/index.js --input ./input.csv --output ./output.sql --batch-size 1000
-```
-
-Options:
-- `--input <path>` required
-- `--output <path>` required
-- `--batch-size <n>` optional (default 1000)
-
-Environment variables:
-- `INPUT_PATH`, `OUTPUT_PATH`, `BATCH_SIZE`
-
-## Docker
-
-```bash
-docker build -t nem12-meter-readings:latest .
-docker run --rm \
-  -v $(pwd)/data:/data \
-  -e INPUT_PATH=/data/in/input.csv \
-  -e OUTPUT_PATH=/data/out/output.sql \
-  nem12-meter-readings:latest
+node dist/index.js --input-dir ./data/in --output-dir ./data/out --logs-dir ./_logs
 ```
 
 ## Docker Compose
@@ -37,13 +18,21 @@ docker run --rm \
 docker compose up --build
 ```
 
-Place the input file at `./data/in/input.csv`. Output will be written to `./data/out/output.sql`.
+Place input files at `./data/in`. Outputs are written to `./data/out` with `.sql` extension.
+When using Docker Compose, logs are written to `./data/_logs`.
 
-Skipped rows are always logged to `OUTPUT_PATH + ".skipped.csv"` in CSV format:
+Skipped rows are always logged to `<logs-dir>/skipped/<file>.skipped.csv` in CSV format:
 `nmi,intervalDate,intervalIndex,reason,rawValue`.
+
+Inputs remain in place. Errors are written to `<logs-dir>/error/<file>.error.txt`.
+The final summary is written to `<logs-dir>/summary.json`.
 
 ## Notes
 
 - Only record types 100/200/300/900 are supported in this version.
 - Any unexpected record causes the file to be rejected (no output).
-- Duplicate 300 records for the same `(nmi, IntervalDate)` are logged.
+
+## Kafka Transition (Future)
+
+Kafka integration can be added without changing core processing by calling
+`processFileName({ fileName, inputDir, outputDir, logsDir }, batchSize)` for each message.

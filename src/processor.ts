@@ -1,4 +1,5 @@
 import fs from "fs";
+import path from "path";
 import { parse } from "csv-parse";
 import { buildInsert, buildRow } from "./sql";
 import { parse100, parse200, parse300, parse900, Record200 } from "./records";
@@ -7,6 +8,7 @@ import { dateToUtcMs, formatTimestampUtc, getOffsetsMs } from "./time";
 export interface ProcessOptions {
   inputPath: string;
   outputPath: string;
+  skippedPath: string;
   batchSize: number;
 }
 
@@ -28,18 +30,20 @@ async function writeWithBackpressure(stream: fs.WriteStream, data: string): Prom
  * Stream a NEM12 file into batched SQL inserts with a skipped-row audit log.
  */
 export async function processFile(options: ProcessOptions): Promise<ProcessResult> {
-  const { inputPath, outputPath, batchSize } = options;
+  const { inputPath, outputPath, batchSize, skippedPath } = options;
   // Write output atomically via temp file; always keep a skipped-log next to it.
   const tmpPath = `${outputPath}.tmp`;
-  const skippedLogPath = `${outputPath}.skipped.csv`;
+
+  await fs.promises.mkdir(path.dirname(outputPath), { recursive: true });
+  await fs.promises.mkdir(path.dirname(skippedPath), { recursive: true });
 
   await fs.promises.rm(tmpPath, { force: true });
-  await fs.promises.rm(skippedLogPath, { force: true });
+  await fs.promises.rm(skippedPath, { force: true });
 
   // Streams for input, output SQL, and skipped-row audit log.
   const input = fs.createReadStream(inputPath, { encoding: "utf8" });
   const output = fs.createWriteStream(tmpPath, { encoding: "utf8" });
-  const skippedLog = fs.createWriteStream(skippedLogPath, { encoding: "utf8" });
+  const skippedLog = fs.createWriteStream(skippedPath, { encoding: "utf8" });
 
   // CSV parser yields one record per NEM12 line.
   const parser = parse({
