@@ -52,6 +52,7 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
   // State for the current 200 record context.
   let current200: Record200 | null = null;
   const rows: string[] = [];
+  const seenReadings = new Set<string>();
 
   let recordsRead = 0;
   let rowsEmitted = 0;
@@ -119,6 +120,13 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
             continue;
           }
           const timestamp = formatTimestampUtc(baseMs + offsetsMs[i]);
+          const readingKey = `${current200.nmi}|${timestamp}`;
+          if (seenReadings.has(readingKey)) {
+            throw new Error(
+              `Duplicate reading detected for NMI ${current200.nmi} at ${timestamp}`,
+            );
+          }
+          seenReadings.add(readingKey);
           rows.push(buildRow(current200.nmi, timestamp, value.toString()));
           if (rows.length >= batchSize) {
             const sql = emitBatch();
@@ -154,6 +162,9 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
       skippedLog.end(() => resolve());
       skippedLog.on("error", reject);
     });
+    if (rowsSkipped === 0) {
+      await fs.promises.rm(skippedPath, { force: true });
+    }
     await fs.promises.rename(tmpPath, outputPath);
 
     return { recordsRead, rowsEmitted, rowsSkipped };
@@ -164,6 +175,7 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
     output.destroy();
     skippedLog.destroy();
     await fs.promises.rm(tmpPath, { force: true });
+    await fs.promises.rm(skippedPath, { force: true });
     throw error;
   }
 }

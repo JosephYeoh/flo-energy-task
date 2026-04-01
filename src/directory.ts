@@ -32,9 +32,9 @@ interface LogDirs {
  */
 export async function processDirectoryOnce(options: DirectoryOptions): Promise<DirectorySummary> {
   const { inputDir, outputDir, logsDir, batchSize } = options;
+  await resetDir(outputDir);
+  await resetDir(logsDir);
   await ensureLogDirs(logsDir);
-
-  await fs.promises.mkdir(outputDir, { recursive: true });
 
   const entries = await fs.promises.readdir(inputDir, { withFileTypes: true });
   const files = entries
@@ -138,4 +138,9 @@ function getLogDirs(logsDir: string): LogDirs {
     errorDir: path.join(logsDir, "error"),
     skippedDir: path.join(logsDir, "skipped"),
   };
+}
+
+async function resetDir(targetDir: string): Promise<void> {
+  await fs.promises.rm(targetDir, { recursive: true, force: true });
+  await fs.promises.mkdir(targetDir, { recursive: true });
 }

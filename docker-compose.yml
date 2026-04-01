@@ -3,6 +3,7 @@ services:
   nem12:
     build: .
     image: nem12-meter-readings:latest
-    command: ["--input-dir", "/data/in", "--output-dir", "/data/out", "--logs-dir", "/data/_logs"]
+    command: ["--input-dir", "/samples", "--output-dir", "/data/out", "--logs-dir", "/data/_logs"]
     volumes:
       - ./data:/data
+      - ./samples:/samples

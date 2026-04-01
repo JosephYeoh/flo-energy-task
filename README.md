@@ -9,7 +9,7 @@ Directory batch:
 ```bash
 npm install
 npm run build
-node dist/index.js --input-dir ./data/in --output-dir ./data/out --logs-dir ./_logs
+node dist/index.js --input-dir ./samples --output-dir ./data/out --logs-dir ./data/_logs
 ```
 
 ## Docker Compose
@@ -18,7 +18,7 @@ node dist/index.js --input-dir ./data/in --output-dir ./data/out --logs-dir ./_l
 docker compose up --build
 ```
 
-Place input files at `./data/in`. Outputs are written to `./data/out` with `.sql` extension.
+Place input files at `./samples`. Outputs are written to `./data/out` with `.sql` extension.
 When using Docker Compose, logs are written to `./data/_logs`.
 
 Skipped rows are always logged to `<logs-dir>/skipped/<file>.skipped.csv` in CSV format:
