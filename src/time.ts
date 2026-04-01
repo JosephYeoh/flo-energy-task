@@ -1,19 +1,4 @@
-const VALID_INTERVAL_LENGTHS = new Set([5, 15, 30]);
 const OFFSETS_CACHE = new Map<number, number[]>();
-
-/**
- * Validate interval length against supported NEM12 values.
- */
-export function isValidIntervalLength(value: number): boolean {
-  return VALID_INTERVAL_LENGTHS.has(value);
-}
-
-/**
- * Get the number of intervals per day for a given interval length.
- */
-export function getIntervalCount(intervalLength: number): number {
-  return Math.floor(1440 / intervalLength);
-}
 
 /**
  * Precompute period-ending offsets (ms) for interval positions in a day.
@@ -21,7 +6,7 @@ export function getIntervalCount(intervalLength: number): number {
 export function getOffsetsMs(intervalLength: number): number[] {
   const cached = OFFSETS_CACHE.get(intervalLength);
   if (cached) return cached;
-  const count = getIntervalCount(intervalLength);
+  const count =  Math.floor(1440 / intervalLength);
   const offsets: number[] = new Array(count);
   for (let i = 0; i < count; i += 1) {
     offsets[i] = (i + 1) * intervalLength * 60 * 1000;

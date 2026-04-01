@@ -1,4 +1,4 @@
-import { isValidIntervalLength } from "./time";
+const VALID_INTERVAL_LENGTHS = new Set([5, 15, 30]);
 
 export type RecordType = "100" | "200" | "300" | "900";
 
@@ -48,9 +48,8 @@ export function parse200(fields: string[]): Record200 {
   if (!nmi) {
     throw new Error("Invalid 200 record: missing NMI");
   }
-const intervalLength = Number(fields[8]);
-
-  if (!Number.isFinite(intervalLength) || !isValidIntervalLength(intervalLength)) {
+  const intervalLength = Number(fields[8]);
+  if (!Number.isFinite(intervalLength) || !VALID_INTERVAL_LENGTHS.has(intervalLength)) {
     throw new Error(`Invalid 200 record: invalid IntervalLength ${fields[8]}`);
   }
   return {

@@ -1,0 +1,22 @@
+Q1. What is the rationale for the technologies you have decided to use?
+- `TypeScript` + `Node.js` for strong typing, fast iteration, and excellent streaming I/O support for large files.
+- `csv-parse` for robust CSV handling suited to NEM12 data, and it is better maintained.
+- Streaming processing to keep memory bounded for very large inputs.
+- Batched SQL generation for efficient database ingestion.
+- Docker for consistent runtime and easy deployment.
+
+Q2. What would you have done differently if you had more time?
+- Implement full 400/500 record support (quality flags, reason codes, B2B metadata).
+- Add configurable strictness levels (fail vs skip malformed records).
+- Offer COPY-ready CSV output for faster bulk load into Postgres.
+- Improve observability (structured logs, metrics, tracing).
+- Add more property-based tests and large-file integration tests.
+- Add optional queue/worker mode for high file counts.
+
+Q3. What is the rationale for the design choices that you have made?
+- Use period-ending timestamps per NEM12 spec; table uses timestamp without timezone.
+- Skip and log missing/invalid consumption values to preserve throughput while maintaining auditability.
+- Fail on malformed structural records to avoid silent corruption.
+- Batch INSERTs with ON CONFLICT upsert for idempotency and lower DB overhead.
+- Single-file per run allows horizontal scaling by running multiple instances.
+- Precompute interval offsets to reduce per-row computation.
