@@ -1,5 +1,7 @@
 import fs from "fs";
 import path from "path";
+import { Readable } from "stream";
+import { pipeline } from "stream/promises";
 import { parse } from "csv-parse";
 import { buildInsert, buildRow } from "./sql";
 import { parse100, parse200, parse300, parse900, Record200 } from "./records";
@@ -16,14 +18,6 @@ export interface ProcessResult {
   recordsRead: number;
   rowsEmitted: number;
   rowsSkipped: number;
-}
-
-/**
- * Write to a stream and await drain if the internal buffer is full.
- */
-async function writeWithBackpressure(stream: fs.WriteStream, data: string): Promise<void> {
-  if (stream.write(data)) return;
-  await new Promise<void>((resolve) => stream.once("drain", () => resolve()));
 }
 
 /**
@@ -63,25 +57,17 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
   let rowsEmitted = 0;
   let rowsSkipped = 0;
 
-  // Flush the in-memory batch to the output stream.
-  const flushRows = async () => {
-    if (rows.length === 0) return;
-    const sql = buildInsert(rows);
-    rowsEmitted += rows.length;
-    rows.length = 0;
-    await writeWithBackpressure(output, sql);
-  };
+  async function* generateSqlBatches(): AsyncGenerator<string> {
+    // Build and clear the current batch, returning SQL or null if empty.
+    const emitBatch = (): string | null => {
+      if (rows.length === 0) return null;
+      const sql = buildInsert(rows);
+      rowsEmitted += rows.length;
+      rows.length = 0;
+      return sql;
+    };
 
-  // Best-effort cleanup for partial runs.
-  const cleanup = async () => {
-    input.destroy();
-    parser.destroy();
-    output.destroy();
-    skippedLog.destroy();
-    await fs.promises.rm(tmpPath, { force: true });
-  };
-
-  try {
+    // Consume parsed records and yield SQL when a batch is ready.
     for await (const record of parser) {
       recordsRead += 1;
       // Normalize to strings for consistent parsing.
@@ -110,9 +96,10 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
         const baseMs = dateToUtcMs(record300.intervalDate);
         const offsetsMs = getOffsetsMs(current200.intervalLength);
 
+        // Log skipped interval values for auditing.
         const logSkipped = (index: number, reason: string, rawValue: string) => {
           skippedLog.write(
-            `${current200!.nmi},${record300.intervalDate},${index},${reason},${rawValue}\n`
+            `${current200!.nmi},${record300.intervalDate},${index},${reason},${rawValue}\n`,
           );
         };
 
@@ -134,7 +121,8 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
           const timestamp = formatTimestampUtc(baseMs + offsetsMs[i]);
           rows.push(buildRow(current200.nmi, timestamp, value.toString()));
           if (rows.length >= batchSize) {
-            await flushRows();
+            const sql = emitBatch();
+            if (sql) yield sql;
           }
         }
         continue;
@@ -154,12 +142,14 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
       throw new Error(`Unexpected record indicator: ${indicator || "<empty>"}`);
     }
 
-    // Final flush and close streams.
-    await flushRows();
-    await new Promise<void>((resolve, reject) => {
-      output.end(() => resolve());
-      output.on("error", reject);
-    });
+    // Flush any remaining rows at end-of-file.
+    const finalSql = emitBatch();
+    if (finalSql) yield finalSql;
+  }
+
+  try {
+    const sqlStream = Readable.from(generateSqlBatches(), { encoding: "utf8" });
+    await pipeline(sqlStream, output);
     await new Promise<void>((resolve, reject) => {
       skippedLog.end(() => resolve());
       skippedLog.on("error", reject);
@@ -168,7 +158,12 @@ export async function processFile(options: ProcessOptions): Promise<ProcessResul
 
     return { recordsRead, rowsEmitted, rowsSkipped };
   } catch (error) {
-    await cleanup();
+    // Best-effort cleanup for partial runs.
+    input.destroy();
+    parser.destroy();
+    output.destroy();
+    skippedLog.destroy();
+    await fs.promises.rm(tmpPath, { force: true });
     throw error;
   }
 }

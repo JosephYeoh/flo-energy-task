@@ -3,6 +3,7 @@ Q1. What is the rationale for the technologies you have decided to use?
 - `csv-parse` for robust CSV handling suited to NEM12 data, and it is better maintained.
 - Streaming processing to keep memory bounded for very large inputs.
 - Batched SQL generation for efficient database ingestion.
+- Structured logs (`skipped`, `error`, and `summary.json`) for auditability without bloating memory.
 - Docker for consistent runtime and easy deployment.
 
 Q2. What would you have done differently if you had more time?
@@ -11,12 +12,13 @@ Q2. What would you have done differently if you had more time?
 - Offer COPY-ready CSV output for faster bulk load into Postgres.
 - Improve observability (structured logs, metrics, tracing).
 - Add more property-based tests and large-file integration tests.
-- Add optional queue/worker mode for high file counts.
+- Integrate with a messaging queue like Kafka with visibility timeouts and retry policies.
 
 Q3. What is the rationale for the design choices that you have made?
 - Use period-ending timestamps per NEM12 spec; table uses timestamp without timezone.
 - Skip and log missing/invalid consumption values to preserve throughput while maintaining auditability.
 - Fail on malformed structural records to avoid silent corruption.
 - Batch INSERTs with ON CONFLICT upsert for idempotency and lower DB overhead.
-- Single-file per run allows horizontal scaling by running multiple instances.
+- Directory batch mode + streaming keeps bulk file handling simple and memory-bounded.
+- Single-file processing stays isolated, making it easy to plug into a messaging queue by invoking the file processor per message.
 - Precompute interval offsets to reduce per-row computation.
