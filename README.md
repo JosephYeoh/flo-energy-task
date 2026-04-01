@@ -31,8 +31,3 @@ The final summary is written to `<logs-dir>/summary.json`.
 
 - Only record types 100/200/300/900 are supported in this version.
 - Any unexpected record causes the file to be rejected (no output).
-
-## Kafka Transition (Future)
-
-Kafka integration can be added without changing core processing by calling
-`processFileName({ fileName, inputDir, outputDir, logsDir }, batchSize)` for each message.
